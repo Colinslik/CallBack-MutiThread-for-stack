@@ -32,7 +32,21 @@ private:
 	my_pair *_next;
 };
 
-static my_pair* HEAD;
+class CallBack{
+public:
+	CallBack();
+	~CallBack();
+	void setPrint(std::function< void(void)>);
+	void setPush(std::function< bool(std::string, std::string)>);
+	void setPop(std::function< std::string(void)>);
+	std::function< void(void)> getPrint();
+	std::function< bool(std::string, std::string)> getPush();
+	std::function< std::string(void)> getPop();
+private:
+	std::function< void(void)> _print;
+	std::function< bool(std::string, std::string)> _push;
+	std::function< std::string(void)> _pop;
+};
 
 //sleep for milliseconds
 void delay(unsigned long);
@@ -43,20 +57,14 @@ bool consoleHandler(int);
 void CtrlHandler(int);
 //=====================
 
-bool push(std::string, std::string);
-
-std::string pop();
-
 my_pair* pair_find(std::string);
 
 void destructor_pair();
 
-void random_push();
+void random_push(std::function< bool(std::string, std::string)>);
 
-void recursive_pop();
+void recursive_pop(std::function< std::string(void)>);
 
-void stack_printf();
-
-void Thread_main(std::function< void(void)>);
+void Thread_main(CallBack);
 
 #endif //__SAMPLE_H__

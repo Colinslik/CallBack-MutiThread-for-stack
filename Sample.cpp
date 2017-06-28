@@ -11,6 +11,14 @@ std::string my_pair::getKey(){ return _key; }
 std::string my_pair::getValue(){ return _value; }
 my_pair *my_pair::getNext(){ return _next; }
 
+CallBack::CallBack(){}
+CallBack::~CallBack(){}
+void CallBack::setPrint(std::function< void(void)> print){ _print = print; }
+void CallBack::setPush(std::function< bool(std::string, std::string)> push){ _push = push; }
+void CallBack::setPop(std::function< std::string(void)> pop){ _pop = pop; }
+std::function< void(void)> CallBack::getPrint(){ return _print; }
+std::function< bool(std::string, std::string)> CallBack::getPush(){ return _push; }
+std::function< std::string(void)> CallBack::getPop(){ return _pop; }
 
 //length of key and value
 const unsigned int KEY_LENGTH = 2;
@@ -20,6 +28,8 @@ std::atomic<bool> run{ true };
 
 std::mutex gMutex;
 std::condition_variable gCV1;
+
+my_pair* HEAD = NULL;
 
 void delay(unsigned long ms)
 {
@@ -39,53 +49,6 @@ bool consoleHandler(int signal){
 void CtrlHandler(int sig){
 	std::cout << "Signal caught" <<std::endl;
 	consoleHandler(sig);
-}
-
-//stack push
-bool push(std::string key, std::string value){
-
-	my_pair *_ptr = HEAD;
-
-	std::cout << std::endl << std::endl << "HEAD ori: " << HEAD << std::endl << std::endl;
-
-	if (!_ptr){//if Head pointer has already been initialized.
-		if ((_ptr = new my_pair) != NULL)
-		{
-			_ptr->setKey(key);
-			_ptr->setValue(value);
-			HEAD = _ptr;
-
-			std::cout << std::endl << std::endl << "HEAD set: " << HEAD << std::endl << std::endl;
-			return 1;
-		}
-		return 0;
-	}
-	else{//if Head pointer has not yet been initialized.
-		for (; _ptr && _ptr->getNext() != NULL; _ptr = _ptr->getNext());
-		my_pair* obj = new my_pair;
-		if (obj)
-		{
-			_ptr->setNext(obj);
-			obj->setKey(key);
-			obj->setValue(value);
-			return 1;
-		}
-		return 0;
-	}
-}
-//stack pop
-std::string pop(){
-	my_pair *_ptr = HEAD, *_pre_ptr = HEAD;
-	if (_ptr->getNext() != NULL) {
-		_pre_ptr = _ptr;
-		_ptr = _ptr->getNext();
-	}
-	for (; _ptr->getNext() != NULL; _ptr = _ptr->getNext()) _pre_ptr = _pre_ptr->getNext();
-	std::string value(_ptr->getValue());
-	_pre_ptr->setNext(NULL);
-	if (_pre_ptr == _ptr) HEAD = NULL;//if pop the last entry, let Head pointer set to NULL
-	delete _ptr;
-	return value;
 }
 
 //pair struct search method by key
@@ -119,7 +82,7 @@ void destructor_pair(){
 }
 
 //Random create string pair to push to stack
-void random_push(){
+void random_push(std::function< bool(std::string, std::string)> CallBack){
 	std::string key = "";
 	std::string value = "";
 	my_pair *_ptr;
@@ -150,7 +113,7 @@ void random_push(){
 			value = value + (static_cast<char>('A' + dis(gen) % 26));
 		}
 		std::cout << std::endl << std::endl << "PUSH item KEY: " << key << "  Value: " << value << std::endl << std::endl;
-		if (!push(key, value)){//if push fail, destory container and restart.
+		if (!CallBack(key, value)){//if push fail, destory container and restart.
 			destructor_pair();
 		}
 //		else delay(10000);
@@ -165,13 +128,13 @@ void random_push(){
 	std::cout << std::endl << std::endl <<"PUSH Thread is terminated." << std::endl <<std::endl;
 }
 //Pop entry from stack
-void recursive_pop(){
+void recursive_pop(std::function< std::string(void)> CallBack){
 	std::string value = "";
 	while (run){
 
 		std::unique_lock<std::mutex> mLock(gMutex);
 		gCV1.wait(mLock);
-		while ( HEAD && (!(value = pop()).empty())){
+		while (HEAD && (!(value = CallBack()).empty())){
 			std::cout << "POP Value:" << value << std::endl;
 //			delay(5000);
 		}
@@ -179,32 +142,25 @@ void recursive_pop(){
 	}
 	std::cout << std::endl << std::endl << "POP Thread is terminated." << std::endl << std::endl;
 }
-//show all entries in stack
-/*void stack_printf(){
-	my_pair *_ptr = HEAD;
-	std::cout << std::endl << std::endl << "Top  of stack." << std::endl << std::endl;
-	for (; _ptr && (_ptr != NULL); _ptr = _ptr->next)
-	{
-		std::cout << "KEY: " << _ptr->key << "   Value: " << _ptr->value << std::endl;
-	}
-	std::cout << std::endl << "END  of stack." << std::endl;
-//	delay(10000);
-}*/
 
-void Thread_main(std::function< void(void)> CallBack){
+void Thread_main(CallBack CBfun){
 	signal(SIGINT, CtrlHandler);
 
 	auto start = std::chrono::system_clock::now();
 
-	std::thread mThread1(random_push); //thread 1 for push entries
+	std::function< bool(std::string, std::string)> Push = CBfun.getPush();
+	std::function< std::string(void)> Pop = CBfun.getPop();
+	std::function< void(void)> Print = CBfun.getPrint();
 
-	std::thread mThread2(recursive_pop); // thread 2 for pop entries
+	std::thread mThread1(random_push, Push); //thread 1 for push entries
+
+	std::thread mThread2(recursive_pop, Pop); // thread 2 for pop entries
 
 	while (run){//printf entries in stack
 		if (HEAD && HEAD != 0) {
 			std::unique_lock<std::mutex> mLock(gMutex);
 //			stack_printf();
-			CallBack();
+			Print();
 			mLock.unlock();
 		}
 /*		{
