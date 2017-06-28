@@ -1,86 +1,58 @@
-#if defined(__WIN32__) || defined(_WIN32) || defined(WIN32) || defined(__WINDOWS__) || defined(__TOS_WIN__)
-#pragma once
-#endif
 #ifndef __SAMPLE_H__
 #define __SAMPLE_H__
 
 #include <signal.h>
 #include <stdbool.h>
-#include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <stdio.h>
+#include <stdlib.h>
 #if defined(__WIN32__) || defined(_WIN32) || defined(WIN32) || defined(__WINDOWS__) || defined(__TOS_WIN__)
-#define TERMINATE_TIME 10
+#include <windows.h>
 #else
 #include <pthread.h>
-#define TERMINATE_TIME 1
+#include <unistd.h>
 #endif
 
-
-//sleep for win32 and linux
-#if defined(__WIN32__) || defined(_WIN32) || defined(WIN32) || defined(__WINDOWS__) || defined(__TOS_WIN__)
-
-#include <windows.h>
-
-void delay(unsigned long ms)
-{
-	Sleep(ms);
-}
-
-#else  /* presume POSIX */
-
-#include <unistd.h>
-#include <stdlib.h>
-
-void delay(unsigned long ms)
-{
-	usleep(ms * 1000);
-}
-
-#endif 
-
-typedef void(*CBfun)(void);
+//length of key and value
+#define KEY_LENGTH 2
+#define VALUE_LENGTH 10
+#define TERMINATE_TIME 10
 
 //pair struct
-struct pair;
+typedef struct pair{
+	char* key;
+	char* value;
+	struct pair *next;
+}my_pair;
 
-struct pair* HEAD;
+typedef void(*CBfun1)(void);
+typedef bool(*CBfun2)(char*, char*);
+typedef char* (*CBfun3)(void);
+
+typedef struct CallBack{
+	CBfun1 Print;
+	CBfun2 Push;
+	CBfun3 Pop;
+}CBfun;
+
+void delay(unsigned long);
 
 //Exception handle 2
 
-bool consoleHandler(int signal){
-//#if defined(__WIN32__) || defined(_WIN32) || defined(WIN32) || defined(__WINDOWS__) || defined(__TOS_WIN__)
-//	if (signal == CTRL_C_EVENT){
-//#else
-	if (signal == SIGINT){
-//#endif
-		printf("Signal caught2\n");
-		//exit(0);
-	}
-	printf("signal:%d  SIGINT: %d\n",signal, SIGINT);
-	exit(1);
-}
+bool consoleHandler(int);
 
 //Exception handle 1
 
-void CtrlHandler(int sig){
-	printf("Signal caught\n");
-	consoleHandler(sig);
-}
+void CtrlHandler(int);
 
-bool push(char*, char*);
-
-char* pop();
-
-struct pair* pair_find(char *);
+my_pair* pair_find(char *);
 
 void destructor_pair();
 
-void random_push();
+void random_push(CBfun2);
 
-void recursive_pop();
-
-void stack_printf();
+void recursive_pop(CBfun3);
 
 void Thread_main(CBfun);
 
